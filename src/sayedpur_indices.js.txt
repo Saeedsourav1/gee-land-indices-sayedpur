@@ -116,7 +116,7 @@ Map.centerObject(roi, 10); // Zoom level 10
 // Add the RGB composite as a single layer
 Map.addLayer(compositeImage, rgbVisParams, 'RGB Composite (NDVI, MNDWI, NDBI)');
 
-// Option 2: Split-Panel Map to Show All Indices Side by Side
+
 // Create four maps for each index
 var ndviMap = ui.Map();
 ndviMap.addLayer(ndviImage, ndviVisParams, 'NDVI');
