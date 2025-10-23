@@ -1,0 +1,128 @@
+/**
+ * Title: Land Cover Indices (NDVI, MNDWI, BSI, NDBI) – Sayedpur
+ * Platform: Google Earth Engine
+ * Author: [Saeed Sourav]
+ * Date: 2025
+ * GitHub: https://github.com/saeedsourav1/gee-sayedpur-land-indices
+ */
+
+ // -------------------------------
+ // 1. LOAD REGION OF INTEREST
+ // -------------------------------
+var roi = sayedpur.geometry();  // Ensure 'sayedpur' is uploaded in Assets
+
+// -------------------------------
+// 2. LOAD SENTINEL-2 DATA
+// -------------------------------
+var collection = ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
+  .filterBounds(roi)
+  .filterDate('2024-01-01', '2024-12-31')
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10));
+
+// -------------------------------
+// 3. INDEX CALCULATION FUNCTIONS
+// -------------------------------
+var calculateNDVI = function(image) {
+  var ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI');
+  return image.addBands(ndvi);
+};
+
+var calculateMNDWI = function(image) {
+  var mndwi = image.normalizedDifference(['B3', 'B11']).rename('MNDWI');
+  return image.addBands(mndwi);
+};
+
+var calculateBSI = function(image) {
+  var swir1 = image.select('B11');
+  var red   = image.select('B4');
+  var nir   = image.select('B8');
+  var blue  = image.select('B2');
+  var bsi = swir1.add(red).subtract(nir.add(blue))
+            .divide(swir1.add(red).add(nir.add(blue)))
+            .rename('BSI');
+  return image.addBands(bsi);
+};
+
+var calculateNDBI = function(image) {
+  var ndbi = image.normalizedDifference(['B11', 'B8']).rename('NDBI');
+  return image.addBands(ndbi);
+};
+
+// -------------------------------
+// 4. APPLY INDICES
+// -------------------------------
+var indexedCollection = collection
+  .map(calculateNDVI)
+  .map(calculateMNDWI)
+  .map(calculateBSI)
+  .map(calculateNDBI);
+
+// -------------------------------
+// 5. MEDIAN COMPOSITE PER INDEX
+// -------------------------------
+var ndviImage  = indexedCollection.select('NDVI').median().clip(roi);
+var mndwiImage = indexedCollection.select('MNDWI').median().clip(roi);
+var bsiImage   = indexedCollection.select('BSI').median().clip(roi);
+var ndbiImage  = indexedCollection.select('NDBI').median().clip(roi);
+
+// -------------------------------
+// 6. COMBINE INTO MULTI-BAND IMAGE
+// -------------------------------
+var compositeImage = ee.Image.cat([ndviImage, mndwiImage, bsiImage, ndbiImage])
+  .rename(['NDVI', 'MNDWI', 'BSI', 'NaeNDBI']);  // Fixed typo: Nae → NDBI
+
+// -------------------------------
+// 7. VISUALIZATION PARAMETERS
+// -------------------------------
+var ndviVis  = { min: -1, max: 1, palette: ['purple', 'orange', 'green'] };
+var mndwiVis = { min: -1, max: 1, palette: ['red', 'yellow', 'blue'] };
+var bsiVis   = { min: -1, max: 1, palette: ['teal', 'magenta', 'gold'] };
+var ndbiVis  = { min: -1, max: 1, palette: ['magenta', 'yellow', 'cyan'] };
+
+var rgbVis = {
+  bands: ['NDVI', 'MNDWI', 'NDBI'],
+  min: -1,
+  max: 1
+};
+
+// -------------------------------
+// 8. ADD LAYERS TO MAP
+// -------------------------------
+Map.centerObject(roi, 10);
+
+// Individual index layers
+Map.addLayer(ndviImage,  ndviVis,  'NDVI');
+Map.addLayer(mndwiImage, mndwiVis, 'MNDWI');
+Map.addLayer(bsiImage,   bsiVis,   'BSI');
+Map.addLayer(ndbiImage,  ndbiVis,  'NDBI');
+
+// RGB composite (3 indices)
+Map.addLayer(compositeImage, rgbVis, 'RGB: NDVI-MNDWI-NDBI');
+
+// Boundary
+Map.addLayer(roi, {color: 'red'}, 'Sayedpur Boundary');
+
+// -------------------------------
+// 9. SPLIT-PANEL VIEW (4 INDICES)
+// -------------------------------
+var ndviMap  = ui.Map().addLayer(ndviImage,  ndviVis,  'NDVI').addLayer(roi, {color: 'red'}, 'Boundary');
+var mndwiMap = ui.Map().addLayer(mndwiImage, mndwiVis, 'MNDWI').addLayer(roi, {color: 'red'}, 'Boundary');
+var bsiMap   = ui.Map().addLayer(bsiImage,   bsiVis,   'BSI').addLayer(roi, {color: 'red'}, 'Boundary');
+var ndbiMap  = ui.Map().addLayer(ndbiImage,  ndbiVis,  'NDBI').addLayer(roi, {color: 'red'}, 'Boundary');
+
+var linker = ui.Map.Linker([ndviMap, mndwiMap, bsiMap, ndbiMap]);
+[ndviMap, mndwiMap, bsiMap, ndbiMap].forEach(function(m) { m.centerObject(roi, 10); });
+
+// Optional: Show split panel (uncomment to use)
+// ui.root.clear();
+// ui.root.add(ui.SplitPanel({
+//   firstPanel: ui.Panel([ndviMap, mndwiMap], ui.Panel.Layout.Flow('horizontal')),
+//   secondPanel: ui.Panel([bsiMap, ndbiMap], ui.Panel.Layout.Flow('horizontal')),
+//   orientation: 'vertical'
+// }));
+
+// -------------------------------
+// 10. CONSOLE OUTPUT
+// -------------------------------
+print('Collection size:', collection.size());
+print('Composite Image:', compositeImage);

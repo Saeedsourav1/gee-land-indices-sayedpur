@@ -1,0 +1,11 @@
+# Earth Engine
+node_modules/
+*.pyc
+.DS_Store
+.ee/
+auth.json
+
+# Exports
+exports/
+*.tif
+*.zip
