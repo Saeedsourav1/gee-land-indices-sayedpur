@@ -3,7 +3,7 @@
  * Platform: Google Earth Engine
  * Author: [Saeed Sourav]
  * Date: 2025
- * GitHub: https://github.com/saeedsourav1/gee-sayedpur-land-indices
+ * https://github.com/Saeedsourav1/gee-land-indices-sayedpur
  */
 
  // -------------------------------
