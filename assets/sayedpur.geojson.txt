@@ -1,1 +1,2 @@
 "Upload your real shapefile to GEE Assets as 'sayedpur'"
+//you can download the assets from https://drive.google.com/drive/folders/1LPyOVySvvYQIAnPdLn8EfuLbQeJTWXFI?usp=drive_link
