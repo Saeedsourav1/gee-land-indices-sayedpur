@@ -5,18 +5,9 @@
  * Date: 2025
  * https://github.com/Saeedsourav1/gee-land-indices-sayedpur
  */
+
 //import shapefile and named the variable as region
 //choose a point in the map and it will automatically imported as geometry
-
-// Define the region of interest (ROI) from the shapefile geometry
-
-/**
- * Title: Land Cover Indices (NDVI, MNDWI, BSI, NDBI) – Sayedpur
- * Platform: Google Earth Engine
- * Author: [Saeed Sourav]
- * Date: 2025
- * https://github.com/Saeedsourav1/gee-land-indices-sayedpur
- */
 
 // Define the region of interest (ROI) from the shapefile geometry
 var roi = region.geometry();
@@ -161,6 +152,4 @@ ndbiMap.centerObject(roi, 10);
 
 // Add shapefile outline to the default map (for the RGB composite)
 Map.addLayer(roi, {color: 'red'}, 'region');
-
-
 
