@@ -9,6 +9,16 @@
 //choose a point in the map and it will automatically imported as geometry
 
 // Define the region of interest (ROI) from the shapefile geometry
+
+/**
+ * Title: Land Cover Indices (NDVI, MNDWI, BSI, NDBI) – Sayedpur
+ * Platform: Google Earth Engine
+ * Author: [Saeed Sourav]
+ * Date: 2025
+ * https://github.com/Saeedsourav1/gee-land-indices-sayedpur
+ */
+
+// Define the region of interest (ROI) from the shapefile geometry
 var roi = region.geometry();
 
 // Load a satellite image collection
@@ -75,22 +85,29 @@ var compositeImage = ee.Image.cat([ndviImage, mndwiImage, bsiImage, ndbiImage])
 var ndviVisParams = {
   min: -1,
   max: 1,
-  palette: ['purple', 'orange', 'green'] // Vegetation: green for high NDVI
+  palette: ['blue', 'white', 'green']  // Low → Moderate → High NDVI (vegetation)
+  // blue = no vegetation, green = dense vegetation
 };
+
 var mndwiVisParams = {
   min: -1,
   max: 1,
-  palette: ['red', 'yellow', 'blue'] // Water: blue for high MNDWI
+  palette: ['brown', 'yellow', 'blue'] // Low → Moderate → High MNDWI (water)
+  // brown = land, blue = water
 };
+
 var bsiVisParams = {
   min: -1,
   max: 1,
-  palette: ['teal', 'magenta', 'gold'] // Bare soil: brown for high BSI
+  palette: ['lightgray', 'tan', 'saddlebrown'] // Low → Mid → High BSI (bare soil)
+  // lightgray = vegetated/covered, saddlebrown = bare soil
 };
+
 var ndbiVisParams = {
   min: -1,
   max: 1,
-  palette: ['magenta', 'yellow', 'cyan'] // Built-up: gray for high NDBI
+  palette: ['lightgray', 'gray', 'dimgray'] // Low → Mid → High NDBI (built-up)
+  // lightgray = natural, dimgray = dense urban
 };
 
 // Center the map on the shapefile geometry
@@ -115,7 +132,6 @@ Map.centerObject(roi, 10); // Zoom level 10
 
 // Add the RGB composite as a single layer
 Map.addLayer(compositeImage, rgbVisParams, 'RGB Composite (NDVI, MNDWI, NDBI)');
-
 
 // Create four maps for each index
 var ndviMap = ui.Map();
@@ -145,4 +161,6 @@ ndbiMap.centerObject(roi, 10);
 
 // Add shapefile outline to the default map (for the RGB composite)
 Map.addLayer(roi, {color: 'red'}, 'region');
+
+
 
