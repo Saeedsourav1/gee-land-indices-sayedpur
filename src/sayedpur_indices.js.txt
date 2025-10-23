@@ -5,124 +5,144 @@
  * Date: 2025
  * https://github.com/Saeedsourav1/gee-land-indices-sayedpur
  */
+//import shapefile and named the variable as region
+//choose a point in the map and it will automatically imported as geometry
 
- // -------------------------------
- // 1. LOAD REGION OF INTEREST
- // -------------------------------
-var roi = sayedpur.geometry();  // Ensure 'sayedpur' is uploaded in Assets
+// Define the region of interest (ROI) from the shapefile geometry
+var roi = region.geometry();
 
-// -------------------------------
-// 2. LOAD SENTINEL-2 DATA
-// -------------------------------
+// Load a satellite image collection
 var collection = ee.ImageCollection('COPERNICUS/S2_HARMONIZED')
-  .filterBounds(roi)
-  .filterDate('2024-01-01', '2024-12-31')
-  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10));
+  .filterBounds(roi) // Filter images intersection the shapefile
+  .filterDate('2024-01-01', '2024-12-31') // Filter by date range
+  .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 10)); // Filter by cloud cover
 
-// -------------------------------
-// 3. INDEX CALCULATION FUNCTIONS
-// -------------------------------
-var calculateNDVI = function(image) {
-  var ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI');
+// Function to calculate NDVI = (NIR-RED)/(NIR+RED)
+ var calculateNDVI = function(image) {
+  var nir = image.select('B8'); // Near-infrared band
+  var red = image.select('B4'); // Red band
+  var ndvi = nir.subtract(red).divide(nir.add(red)).rename('NDVI');
   return image.addBands(ndvi);
 };
 
+// Function to calculate MNDWI
 var calculateMNDWI = function(image) {
-  var mndwi = image.normalizedDifference(['B3', 'B11']).rename('MNDWI');
+  var green = image.select('B3'); // Green band
+  var swir1 = image.select('B11'); // SWIR1 band
+  var mndwi = green.subtract(swir1).divide(green.add(swir1)).rename('MNDWI');
   return image.addBands(mndwi);
 };
 
+// Function to calculate BSI
 var calculateBSI = function(image) {
-  var swir1 = image.select('B11');
-  var red   = image.select('B4');
-  var nir   = image.select('B8');
-  var blue  = image.select('B2');
-  var bsi = swir1.add(red).subtract(nir.add(blue))
+  var swir1 = image.select('B11'); // SWIR1 band
+  var red = image.select('B4'); // Red band
+  var nir = image.select('B8'); // NIR band
+  var blue = image.select('B2'); // Blue band
+  var bsi = (swir1.add(red).subtract(nir.add(blue)))
             .divide(swir1.add(red).add(nir.add(blue)))
             .rename('BSI');
   return image.addBands(bsi);
 };
 
+// Function to calculate NDBI
 var calculateNDBI = function(image) {
-  var ndbi = image.normalizedDifference(['B11', 'B8']).rename('NDBI');
+  var swir1 = image.select('B11'); // SWIR1 band
+  var nir = image.select('B8'); // NIR band
+  var ndbi = swir1.subtract(nir).divide(swir1.add(nir)).rename('NDBI');
   return image.addBands(ndbi);
 };
 
-// -------------------------------
-// 4. APPLY INDICES
-// -------------------------------
+// Apply all index calculations to the collection
 var indexedCollection = collection
   .map(calculateNDVI)
   .map(calculateMNDWI)
   .map(calculateBSI)
   .map(calculateNDBI);
 
-// -------------------------------
-// 5. MEDIAN COMPOSITE PER INDEX
-// -------------------------------
-var ndviImage  = indexedCollection.select('NDVI').median().clip(roi);
+
+// Create composite images for each index and clip to shapefile
+var ndviImage = indexedCollection.select('NDVI').median().clip(roi);
 var mndwiImage = indexedCollection.select('MNDWI').median().clip(roi);
-var bsiImage   = indexedCollection.select('BSI').median().clip(roi);
-var ndbiImage  = indexedCollection.select('NDBI').median().clip(roi);
+var bsiImage = indexedCollection.select('BSI').median().clip(roi);
+var ndbiImage = indexedCollection.select('NDBI').median().clip(roi);
 
-// -------------------------------
-// 6. COMBINE INTO MULTI-BAND IMAGE
-// -------------------------------
+// Combine all indices into a single multi-band image
 var compositeImage = ee.Image.cat([ndviImage, mndwiImage, bsiImage, ndbiImage])
-  .rename(['NDVI', 'MNDWI', 'BSI', 'NaeNDBI']);  // Fixed typo: Nae → NDBI
+  .rename(['NDVI', 'MNDWI', 'BSI', 'NDBI']);
 
-// -------------------------------
-// 7. VISUALIZATION PARAMETERS
-// -------------------------------
-var ndviVis  = { min: -1, max: 1, palette: ['purple', 'orange', 'green'] };
-var mndwiVis = { min: -1, max: 1, palette: ['red', 'yellow', 'blue'] };
-var bsiVis   = { min: -1, max: 1, palette: ['teal', 'magenta', 'gold'] };
-var ndbiVis  = { min: -1, max: 1, palette: ['magenta', 'yellow', 'cyan'] };
+// Define visualization parameters for each index
+var ndviVisParams = {
+  min: -1,
+  max: 1,
+  palette: ['purple', 'orange', 'green'] // Vegetation: green for high NDVI
+};
+var mndwiVisParams = {
+  min: -1,
+  max: 1,
+  palette: ['red', 'yellow', 'blue'] // Water: blue for high MNDWI
+};
+var bsiVisParams = {
+  min: -1,
+  max: 1,
+  palette: ['teal', 'magenta', 'gold'] // Bare soil: brown for high BSI
+};
+var ndbiVisParams = {
+  min: -1,
+  max: 1,
+  palette: ['magenta', 'yellow', 'cyan'] // Built-up: gray for high NDBI
+};
 
-var rgbVis = {
+// Center the map on the shapefile geometry
+Map.centerObject(roi, 10); // Zoom level 10
+
+// Add clipped index layers to the map
+Map.addLayer(ndviImage, ndviVisParams, 'Clipped NDVI');
+Map.addLayer(mndwiImage, mndwiVisParams, 'Clipped MNDWI');
+Map.addLayer(bsiImage, bsiVisParams, 'Clipped BSI');
+Map.addLayer(ndbiImage, ndbiVisParams, 'Clipped NDBI');
+
+
+// Assign NDVI, MNDWI, and NDBI to RGB channels (BSI can be omitted or swapped)
+var rgbVisParams = {
   bands: ['NDVI', 'MNDWI', 'NDBI'],
   min: -1,
   max: 1
 };
 
-// -------------------------------
-// 8. ADD LAYERS TO MAP
-// -------------------------------
-Map.centerObject(roi, 10);
+// Center the map on the shapefile geometry
+Map.centerObject(roi, 10); // Zoom level 10
 
-// Individual index layers
-Map.addLayer(ndviImage,  ndviVis,  'NDVI');
-Map.addLayer(mndwiImage, mndwiVis, 'MNDWI');
-Map.addLayer(bsiImage,   bsiVis,   'BSI');
-Map.addLayer(ndbiImage,  ndbiVis,  'NDBI');
+// Add the RGB composite as a single layer
+Map.addLayer(compositeImage, rgbVisParams, 'RGB Composite (NDVI, MNDWI, NDBI)');
 
-// RGB composite (3 indices)
-Map.addLayer(compositeImage, rgbVis, 'RGB: NDVI-MNDWI-NDBI');
+// Option 2: Split-Panel Map to Show All Indices Side by Side
+// Create four maps for each index
+var ndviMap = ui.Map();
+ndviMap.addLayer(ndviImage, ndviVisParams, 'NDVI');
+ndviMap.addLayer(roi, {color: 'red'}, 'region');
 
-// Boundary
-Map.addLayer(roi, {color: 'red'}, 'Sayedpur Boundary');
+var mndwiMap = ui.Map();
+mndwiMap.addLayer(mndwiImage, mndwiVisParams, 'MNDWI');
+mndwiMap.addLayer(roi, {color: 'red'}, 'region');
 
-// -------------------------------
-// 9. SPLIT-PANEL VIEW (4 INDICES)
-// -------------------------------
-var ndviMap  = ui.Map().addLayer(ndviImage,  ndviVis,  'NDVI').addLayer(roi, {color: 'red'}, 'Boundary');
-var mndwiMap = ui.Map().addLayer(mndwiImage, mndwiVis, 'MNDWI').addLayer(roi, {color: 'red'}, 'Boundary');
-var bsiMap   = ui.Map().addLayer(bsiImage,   bsiVis,   'BSI').addLayer(roi, {color: 'red'}, 'Boundary');
-var ndbiMap  = ui.Map().addLayer(ndbiImage,  ndbiVis,  'NDBI').addLayer(roi, {color: 'red'}, 'Boundary');
+var bsiMap = ui.Map();
+bsiMap.addLayer(bsiImage, bsiVisParams, 'BSI');
+bsiMap.addLayer(roi, {color: 'red'}, 'region');
 
+var ndbiMap = ui.Map();
+ndbiMap.addLayer(ndbiImage, ndbiVisParams, 'NDBI');
+ndbiMap.addLayer(roi, {color: 'red'}, 'region');
+
+// Link the maps to zoom and pan together
 var linker = ui.Map.Linker([ndviMap, mndwiMap, bsiMap, ndbiMap]);
-[ndviMap, mndwiMap, bsiMap, ndbiMap].forEach(function(m) { m.centerObject(roi, 10); });
 
-// Optional: Show split panel (uncomment to use)
-// ui.root.clear();
-// ui.root.add(ui.SplitPanel({
-//   firstPanel: ui.Panel([ndviMap, mndwiMap], ui.Panel.Layout.Flow('horizontal')),
-//   secondPanel: ui.Panel([bsiMap, ndbiMap], ui.Panel.Layout.Flow('horizontal')),
-//   orientation: 'vertical'
-// }));
+// Center all maps on the ROI
+ndviMap.centerObject(roi, 10);
+mndwiMap.centerObject(roi, 10);
+bsiMap.centerObject(roi, 10);
+ndbiMap.centerObject(roi, 10);
 
-// -------------------------------
-// 10. CONSOLE OUTPUT
-// -------------------------------
-print('Collection size:', collection.size());
-print('Composite Image:', compositeImage);
+// Add shapefile outline to the default map (for the RGB composite)
+Map.addLayer(roi, {color: 'red'}, 'region');
+
